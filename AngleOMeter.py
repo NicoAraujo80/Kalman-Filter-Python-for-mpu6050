@@ -5,16 +5,17 @@
 #SCL - SCL (5 - Board)
 #SDA - SDA (3 - Board)
 
-
+from servo import servo
 from Kalman import KalmanAngle
 import smbus			#import SMBus module of I2C
 import time
 import math
 
+servo = servo()
 kalmanX = KalmanAngle()
 kalmanY = KalmanAngle()
 
-RestrictPitch = True	#Comment out to restrict roll to ±90deg instead - please read: http://www.freescale.com/files/sensors/doc/app_note/AN3461.pdf
+RestrictPitch = False	#Comment out to restrict roll to ±90deg instead - please read: http://www.freescale.com/files/sensors/doc/app_note/AN3461.pdf
 radToDeg = 57.2957786
 kalAngleX = 0
 kalAngleY = 0
@@ -34,25 +35,25 @@ GYRO_ZOUT_H  = 0x47
 
 #Read the gyro and acceleromater values from MPU6050
 def MPU_Init():
-	#write to sample rate register
-	bus.write_byte_data(DeviceAddress, SMPLRT_DIV, 7)
+        #write to sample rate register
+        bus.write_byte_data(DeviceAddress, SMPLRT_DIV, 7)
 
-	#Write to power management register
-	bus.write_byte_data(DeviceAddress, PWR_MGMT_1, 1)
+        #Write to power management register
+        bus.write_byte_data(DeviceAddress, PWR_MGMT_1, 1)
 
-	#Write to Configuration register
-	#Setting DLPF (last three bit of 0X1A to 6 i.e '110' It removes the noise due to vibration.) https://ulrichbuschbaum.wordpress.com/2015/01/18/using-the-mpu6050s-dlpf/
-	bus.write_byte_data(DeviceAddress, CONFIG, int('0000110',2))
+        #Write to Configuration register
+        #Setting DLPF (last three bit of 0X1A to 6 i.e '110' It removes the noise due to vibration.) https://ulrichbuschbaum.wordpress.com/2015/01/18/using-the-mpu6050s-dlpf/
+        bus.write_byte_data(DeviceAddress, CONFIG, int('0000110',2))
 
-	#Write to Gyro configuration register
-	bus.write_byte_data(DeviceAddress, GYRO_CONFIG, 24)
+        #Write to Gyro configuration register
+        bus.write_byte_data(DeviceAddress, GYRO_CONFIG, 24)
 
-	#Write to interrupt enable register
-	bus.write_byte_data(DeviceAddress, INT_ENABLE, 1)
+        #Write to interrupt enable register
+        bus.write_byte_data(DeviceAddress, INT_ENABLE, 1)
 
 
 def read_raw_data(addr):
-	#Accelero and Gyro value are 16-bit
+        #Accelero and Gyro value are 16-bit
         high = bus.read_byte_data(DeviceAddress, addr)
         low = bus.read_byte_data(DeviceAddress, addr+1)
 
@@ -95,77 +96,78 @@ compAngleY = pitch;
 timer = time.time()
 flag = 0
 while True:
-	if(flag >100): #Problem with the connection
-		print("There is a problem with the connection")
-		flag=0
-		continue
-	try:
-	    #Read Accelerometer raw value
-	    accX = read_raw_data(ACCEL_XOUT_H)
-	    accY = read_raw_data(ACCEL_YOUT_H)
-	    accZ = read_raw_data(ACCEL_ZOUT_H)
+        if(flag >100): #Problem with the connection
+                print("There is a problem with the connection")
+                flag=0
+                continue
+        try:
+            #Read Accelerometer raw value
+            accX = read_raw_data(ACCEL_XOUT_H)
+            accY = read_raw_data(ACCEL_YOUT_H)
+            accZ = read_raw_data(ACCEL_ZOUT_H)
 
-	    #Read Gyroscope raw value
-	    gyroX = read_raw_data(GYRO_XOUT_H)
-	    gyroY = read_raw_data(GYRO_YOUT_H)
-	    gyroZ = read_raw_data(GYRO_ZOUT_H)
+            #Read Gyroscope raw value
+            gyroX = read_raw_data(GYRO_XOUT_H)
+            gyroY = read_raw_data(GYRO_YOUT_H)
+            gyroZ = read_raw_data(GYRO_ZOUT_H)
 
-	    dt = time.time() - timer
-	    timer = time.time()
+            dt = time.time() - timer
+            timer = time.time()
 
-	    if (RestrictPitch):
-	        roll = math.atan2(accY,accZ) * radToDeg
-	        pitch = math.atan(-accX/math.sqrt((accY**2)+(accZ**2))) * radToDeg
-	    else:
-	        roll = math.atan(accY/math.sqrt((accX**2)+(accZ**2))) * radToDeg
-	        pitch = math.atan2(-accX,accZ) * radToDeg
+            if (RestrictPitch):
+                roll = math.atan2(accY,accZ) * radToDeg
+                pitch = math.atan(-accX/math.sqrt((accY**2)+(accZ**2))) * radToDeg
+            else:
+                roll = math.atan(accY/math.sqrt((accX**2)+(accZ**2))) * radToDeg
+                pitch = math.atan2(-accX,accZ) * radToDeg
 
-	    gyroXRate = gyroX/131
-	    gyroYRate = gyroY/131
+            gyroXRate = gyroX/131
+            gyroYRate = gyroY/131
 
-	    if (RestrictPitch):
+            if (RestrictPitch):
 
-	        if((roll < -90 and kalAngleX >90) or (roll > 90 and kalAngleX < -90)):
-	            kalmanX.setAngle(roll)
-	            complAngleX = roll
-	            kalAngleX   = roll
-	            gyroXAngle  = roll
-	        else:
-	            kalAngleX = kalmanX.getAngle(roll,gyroXRate,dt)
+                if((roll < -90 and kalAngleX >90) or (roll > 90 and kalAngleX < -90)):
+                    kalmanX.setAngle(roll)
+                    complAngleX = roll
+                    kalAngleX   = roll
+                    gyroXAngle  = roll
+                else:
+                    kalAngleX = kalmanX.getAngle(roll,gyroXRate,dt)
 
-	        if(abs(kalAngleX)>90):
-	            gyroYRate  = -gyroYRate
-	            kalAngleY  = kalmanY.getAngle(pitch,gyroYRate,dt)
-	    else:
+                if(abs(kalAngleX)>90):
+                    gyroYRate  = -gyroYRate
+                    kalAngleY  = kalmanY.getAngle(pitch,gyroYRate,dt)
+            else:
 
-	        if((pitch < -90 and kalAngleY >90) or (pitch > 90 and kalAngleY < -90)):
-	            kalmanY.setAngle(pitch)
-	            complAngleY = pitch
-	            kalAngleY   = pitch
-	            gyroYAngle  = pitch
-	        else:
-	            kalAngleY = kalmanY.getAngle(pitch,gyroYRate,dt)
+                if((pitch < -90 and kalAngleY >90) or (pitch > 90 and kalAngleY < -90)):
+                    kalmanY.setAngle(pitch)
+                    complAngleY = pitch
+                    kalAngleY   = pitch
+                    gyroYAngle  = pitch
+                else:
+                    kalAngleY = kalmanY.getAngle(pitch,gyroYRate,dt)
 
-	        if(abs(kalAngleY)>90):
-	            gyroXRate  = -gyroXRate
-	            kalAngleX = kalmanX.getAngle(roll,gyroXRate,dt)
+                #if(abs(kalAngleY)>90):
+                gyroXRate  = -gyroXRate
+                kalAngleX = kalmanX.getAngle(roll,gyroXRate,dt)
 
-		#angle = (rate of change of angle) * change in time
-	    gyroXAngle = gyroXRate * dt
-	    gyroYAngle = gyroYAngle * dt
+                #angle = (rate of change of angle) * change in time
+            gyroXAngle = gyroXRate * dt
+            gyroYAngle = gyroYRate * dt
 
-		#compAngle = constant * (old_compAngle + angle_obtained_from_gyro) + constant * angle_obtained from accelerometer
-	    compAngleX = 0.93 * (compAngleX + gyroXRate * dt) + 0.07 * roll
-	    compAngleY = 0.93 * (compAngleY + gyroYRate * dt) + 0.07 * pitch
+                #compAngle = constant * (old_compAngle + angle_obtained_from_gyro) + constant * angle_obtained from accelerometer
+            compAngleX = 0.93 * (compAngleX + gyroXRate * dt) + 0.07 * roll
+            compAngleY = 0.93 * (compAngleY + gyroYRate * dt) + 0.07 * pitch
 
-	    if ((gyroXAngle < -180) or (gyroXAngle > 180)):
-	        gyroXAngle = kalAngleX
-	    if ((gyroYAngle < -180) or (gyroYAngle > 180)):
-	        gyroYAngle = kalAngleY
+            if ((gyroXAngle < -180) or (gyroXAngle > 180)):
+                gyroXAngle = kalAngleX
+            if ((gyroYAngle < -180) or (gyroYAngle > 180)):
+                gyroYAngle = kalAngleY
+            
+            servo.moveServo(kalAngleX, kalAngleY)
+            print("Angle X: %.4f" %kalAngleX, "Angle Y: %.4f" %kalAngleY)
+            #print(str(roll)+"  "+str(gyroXAngle)+"  "+str(compAngleX)+"  "+str(kalAngleX)+"  "+str(pitch)+"  "+str(gyroYAngle)+"  "+str(compAngleY)+"  "+str(kalAngleY))
+            time.sleep(0.005)
 
-	    print("Angle X: " + str(kalAngleX)+"   " +"Angle Y: " + str(kalAngleY))
-	    #print(str(roll)+"  "+str(gyroXAngle)+"  "+str(compAngleX)+"  "+str(kalAngleX)+"  "+str(pitch)+"  "+str(gyroYAngle)+"  "+str(compAngleY)+"  "+str(kalAngleY))
-	    time.sleep(0.005)
-
-	except Exception as exc:
-		flag += 1
+        except Exception as exc:
+                flag += 1
